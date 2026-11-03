@@ -46,6 +46,11 @@ RUN apt-get update \
         libfontconfig1 \
         libxss1 \
         xdg-utils \
+        # python (present in many dev images; keep parity with tooling that
+        # assumes it: scripts, HTTP servers, venvs)
+        python3 \
+        python3-pip \
+        python3-venv \
         # fonts: latin + color emoji + CJK, so rendered screenshots aren't tofu
         fonts-liberation \
         fonts-noto-color-emoji \

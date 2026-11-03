@@ -14,6 +14,8 @@ Compared to the base image it adds:
 - **[`mise`](https://mise.jdx.dev)** at `/usr/local/bin/mise`, with its shims on
   `PATH` — tools (node, go, kubectl, helm, flux2, …) are provisioned per-user
   from the mise config in `$HOME`, not baked into the image.
+- **Python 3** (`python3`, `pip`, `venv`) — present in many dev images; kept for
+  tooling that assumes it.
 
 ## Published images
 

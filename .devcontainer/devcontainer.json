@@ -1,5 +1,5 @@
 {
   "name": "dev-image",
-  "image": "ghcr.io/mitchellhuang/dev-image:0.1.0",
+  "image": "ghcr.io/mitchellhuang/dev-image:0.1.1",
   "remoteUser": "vscode"
 }
