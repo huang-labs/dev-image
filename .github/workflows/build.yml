@@ -1,0 +1,75 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ghcr.io/${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Proves the point of this image: a browser downloaded at runtime launches
+  # and renders, i.e. every system library Chromium needs is present.
+  smoke-test:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Launch headless Chrome in the image and render a page
+        run: |
+          docker run --rm "${{ env.IMAGE }}:${{ needs.build.outputs.version }}" bash -c '
+            set -euo pipefail
+            export MISE_DATA_DIR=/root/.local/share/mise
+            mise use -g node@24 -y >/dev/null
+            mise x node@24 -- npx -y playwright@latest install chromium --only-shell >/dev/null
+            CHROME=$(find /root/.cache/ms-playwright -name chrome-headless-shell -type f | head -1)
+            test -n "$CHROME"
+            "$CHROME" --headless --no-sandbox --disable-gpu \
+              --screenshot=/tmp/shot.png --window-size=1280,720 https://example.com 2>/dev/null
+            test -s /tmp/shot.png
+            echo "smoke test OK: headless Chrome rendered example.com ($(stat -c%s /tmp/shot.png) bytes)"
+          '
